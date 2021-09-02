@@ -1,0 +1,47 @@
+# Copyright (c) 2013 Shotgun Software Inc.
+#
+# CONFIDENTIAL AND PROPRIETARY
+#
+# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit
+# Source Code License included in this distribution package. See LICENSE.
+# By accessing, using, copying or modifying this work you indicate your
+# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
+# not expressly granted therein are reserved by Shotgun Software Inc.
+
+# Metadata defining the behaviour and requirements for this engine
+
+# expected fields in the configuration file for this engine
+configuration:
+    project_id:
+        type: int
+        description: "Default project to upload the library to."
+        default_value: 1546
+
+    library_status:
+          type: str
+          description: "Setting for the default status that is assigned to the created sequences/assets/versions"
+          default_value: lib
+
+    library_location:
+          type: str
+          description: "Default location that is opened when using the file browser."
+          default_value: //nfa-vfxim-education.ahk.nl/vfxim/Library
+
+# this app works in all engines - it does not contain
+# any host application specific commands
+supported_engines:
+
+# the Shotgun fields that this engine needs in order to operate correctly
+requires_shotgun_fields:
+
+# More verbose description of this item
+display_name: "ShotGrid Library importer"
+description: "App to import footage from library into ShotGrid."
+
+# Required minimum versions for this item to run
+requires_shotgun_version:
+requires_core_version: "v0.14.28"
+requires_engine_version:
+
+# the frameworks required to run this app
+frameworks:
