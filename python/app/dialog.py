@@ -52,7 +52,7 @@ def show_dialog(app_instance):
     app_instance.engine.show_dialog("NFA Library Importer", app_instance, AppDialog)
 
 
-class AppDialog(QtGui.QWidgeslackt):
+class AppDialog(QtGui.QWidget):
     """
     Main application dialog window
     """
@@ -238,7 +238,7 @@ class AppDialog(QtGui.QWidgeslackt):
 
 
                     if createVersion:
-                        versionID = self.createVersion(libraryProjectID, assetID, fileName, filePath, startFrame, lastFrame)
+                        versionID = self.createVersion(libraryProjectID, assetID, fileName, filePath, 'sequence', startFrame, lastFrame)
 
                         # Transcoding to mov and upload to ShotGrid
                         self.generateQuicktime(filePath, fileName, versionID, 'sequence', startFrame)
@@ -267,7 +267,7 @@ class AppDialog(QtGui.QWidgeslackt):
                                 self.outputToConsole("Skipping " + fileName + ". Version exists already.")
 
                         if createVersion:
-                            versionID = self.createVersion(libraryProjectID, assetID, fileName, filePath)
+                            versionID = self.createVersion(libraryProjectID, assetID, fileName, filePath, 'file')
                             self.generateQuicktime(filePath, fileName, versionID, 'file')
 
         # Message when everything is done
@@ -311,7 +311,7 @@ class AppDialog(QtGui.QWidgeslackt):
 
         return assetID
 
-    def createVersion(self, projectID, assetID, fileName, filePath, startFrame=None, lastFrame=None):
+    def createVersion(self, projectID, assetID, fileName, filePath, type, startFrame=None, lastFrame=None):
         # Getting ShotGrid object
         sg = self.sg
 
@@ -321,9 +321,18 @@ class AppDialog(QtGui.QWidgeslackt):
         versionData = { 'project': {'type': 'Project','id': projectID},
                  'code': fileName,
                  'description': versionDescription,
-                 'sg_path_to_movie': filePath,
                  'sg_status_list': 'vwd',
                  'entity': {'type': 'Asset', 'id': assetID}}
+
+        # Add to sequence field or movie field
+        if type == 'sequence':
+            versionPath = {'sg_path_to_frames': filePath}
+
+        else:
+            versionPath = {'sg_path_to_movie': filePath}
+
+        # Add the data to dictionary
+        versionData.update(versionPath)
 
         if not startFrame == None and not lastFrame == None:
             frameData = {'sg_first_frame': int(startFrame),
