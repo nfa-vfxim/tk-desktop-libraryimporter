@@ -18,14 +18,19 @@ configuration:
         default_value: 1546
 
     library_status:
-          type: str
-          description: "Setting for the default status that is assigned to the created sequences/assets/versions"
-          default_value: lib
+        type: str
+        description: "Setting for the default status that is assigned to the created sequences/assets/versions"
+        default_value: lib
 
     library_location:
-          type: str
-          description: "Default location that is opened when using the file browser."
-          default_value: //nfa-vfxim-education.ahk.nl/vfxim/Library
+        type: str
+        description: "Default location that is opened when using the file browser."
+        default_value: //nfa-vfxim-education.ahk.nl/vfxim/Library
+
+    permission_group:
+        type: str
+        description: "Permission group that is allowed to use the library importer"
+        default_value: Admin
 
 # this app works in all engines - it does not contain
 # any host application specific commands

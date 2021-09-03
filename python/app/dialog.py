@@ -1,12 +1,24 @@
-# Copyright (c) 2013 Shotgun Software Inc.
-#
-# CONFIDENTIAL AND PROPRIETARY
-#
-# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit
-# Source Code License included in this distribution package. See LICENSE.
-# By accessing, using, copying or modifying this work you indicate your
-# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
-# not expressly granted therein are reserved by Shotgun Software Inc.
+# MIT License
+
+# Copyright (c) 2021 Netherlands Film Academy
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
 import sgtk
 import os
@@ -37,10 +49,10 @@ def show_dialog(app_instance):
 
     # we pass the dialog class to this method and leave the actual construction
     # to be carried out by toolkit.
-    app_instance.engine.show_dialog("Library Importer", app_instance, AppDialog)
+    app_instance.engine.show_dialog("NFA Library Importer", app_instance, AppDialog)
 
 
-class AppDialog(QtGui.QWidget):
+class AppDialog(QtGui.QWidgeslackt):
     """
     Main application dialog window
     """
@@ -66,6 +78,7 @@ class AppDialog(QtGui.QWidget):
         self.projectID = self._app.get_setting("project_id")
         self.libraryStatus = self._app.get_setting("library_status")
         self.libraryLocation =  self._app.get_setting("library_location")
+        self.permissionGroup = self._app.get_setting("permission_group")
 
         # Connecting logic
         self.ui.browseDirectory.clicked.connect(self.fileBrowser)
@@ -109,15 +122,47 @@ class AppDialog(QtGui.QWidget):
         directoryPath = self.ui.directoryPath.text()
         directoryPath = directoryPath.replace(os.sep, '/')
 
-        if self.ui.importSubfolders.isChecked():
-            self.outputToConsole("Importing subfolders is activated, will import the complete library. This can take a while.")
-            for subdir in os.listdir(directoryPath):
-                subDirectory = os.path.join(directoryPath, subdir)
-                subDirectory = subDirectory.replace(os.sep, '/')
-                if os.path.isdir(subDirectory):
-                    self.importLibrary(subDirectory)
+        isAllowedImporting = self.checkPermissions()
+
+        if isAllowedImporting:
+            if self.ui.importSubfolders.isChecked():
+                self.outputToConsole("Importing subfolders is activated, will import the complete library. This can take a while.")
+                for subdir in os.listdir(directoryPath):
+                    subDirectory = os.path.join(directoryPath, subdir)
+                    subDirectory = subDirectory.replace(os.sep, '/')
+                    if os.path.isdir(subDirectory):
+                        self.importLibrary(subDirectory)
+            else:
+                self.importLibrary(directoryPath)
+
+    def checkPermissions(self):
+        # Getting ShotGrid object
+        sg = self.sg
+
+        # Getting current user ID
+        user = sgtk.util.get_current_user(sg)
+        userID = user.get('id')
+
+        filters = [['id', 'is', userID]]
+        columns =  ['permission_rule_set']
+
+        # Find permission group
+        userPermissionGroup = sg.find_one('HumanUser', filters, columns)
+        userPermissionGroup = userPermissionGroup.get('permission_rule_set')
+        userPermissionGroup = userPermissionGroup.get('name')
+
+        isAllowedImporting = False
+
+        # Allow importing when permission group is admin or specified permission group
+        if userPermissionGroup == 'Admin' or userPermissionGroup == self.permissionGroup:
+            self.outputToConsole("User is allowed to start importing.")
+            isAllowedImporting = True
+
         else:
-            self.importLibrary(directoryPath)
+            self.outputToConsole("User is not allowed to start importing.")
+
+        return isAllowedImporting
+
 
     def importLibrary(self, directoryPath):
 
