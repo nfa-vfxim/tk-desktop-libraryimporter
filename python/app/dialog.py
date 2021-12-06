@@ -22,7 +22,6 @@
 
 import sgtk
 import os
-import sys
 import threading
 import subprocess
 import tempfile
@@ -77,330 +76,420 @@ class AppDialog(QtGui.QWidget):
         # Getting app settings
         self.projectID = self._app.get_setting("project_id")
         self.libraryStatus = self._app.get_setting("library_status")
-        self.libraryLocation =  self._app.get_setting("library_location")
+        self.libraryLocation = self._app.get_setting("library_location")
         self.permissionGroup = self._app.get_setting("permission_group")
 
         # Connecting logic
-        self.ui.browseDirectory.clicked.connect(self.fileBrowser)
-        self.ui.executeButton.clicked.connect(self.executeImporting)
+        self.ui.browseDirectory.clicked.connect(self.file_browser)
+        self.ui.executeButton.clicked.connect(self.execute_importing)
 
-
-
-
-
-    def fileBrowser(self):
+    def file_browser(self):
         # Creating file browser
-        ### Should be made a link in info.yml and convert method for Windows/Linux.
-        openDirectory = self.libraryLocation
+        open_directory = self.libraryLocation
         directory = QtGui.QFileDialog()
-        directory.setFileMode( QtGui.QFileDialog.FileMode() )
-        directory = directory.getExistingDirectory( None, 'Open directory to import into the library', openDirectory )
+        directory.setFileMode(QtGui.QFileDialog.FileMode())
+        directory = directory.getExistingDirectory(
+            None, "Open directory to import into the library", open_directory
+        )
 
         # Print message
-        self.outputToConsole("Set directory: " + directory)
+        self.output_to_console("Set directory: %s" % directory)
 
         self.ui.directoryPath.setText(directory)
 
-
-    def outputToConsole(self, message):
+    def output_to_console(self, message):
         # Printing to Shotgun console
         logger.info(message)
 
         # Getting previous messages
-        previousText = self.ui.console.toPlainText()
-        currentTime = datetime.now()
-        currentTime = currentTime.strftime("%H:%M:%S")
-        currentTime = "[" + str(currentTime) + "] "
+        previous_text = self.ui.console.toPlainText()
+        current_time = datetime.now()
+        current_time = current_time.strftime("%H:%M:%S")
+        current_time = "[" + str(current_time) + "] "
 
-        if not previousText ==  "":
-            self.ui.console.insertPlainText("\n" + currentTime + message)
+        if not previous_text == "":
+            self.ui.console.insertPlainText("\n" + current_time + message)
         else:
-            self.ui.console.insertPlainText(currentTime + message)
+            self.ui.console.insertPlainText(current_time + message)
 
-    def executeImporting(self):
+    def execute_importing(self):
         # Getting directory path
-        directoryPath = self.ui.directoryPath.text()
-        directoryPath = directoryPath.replace(os.sep, '/')
+        directory_path = self.ui.directoryPath.text()
+        directory_path = directory_path.replace(os.sep, "/")
 
-        isAllowedImporting = self.checkPermissions()
+        is_allowed_importing = self.check_permissions()
 
-        if isAllowedImporting:
+        if is_allowed_importing:
             if self.ui.importSubfolders.isChecked():
-                self.outputToConsole("Importing subfolders is activated, will import the complete library. This can take a while.")
-                for subdir in os.listdir(directoryPath):
-                    subDirectory = os.path.join(directoryPath, subdir)
-                    subDirectory = subDirectory.replace(os.sep, '/')
-                    if os.path.isdir(subDirectory):
-                        self.importLibrary(subDirectory)
+                self.output_to_console(
+                    "Importing subfolders is activated, will import the complete library. This can take a while."
+                )
+                for subdir in os.listdir(directory_path):
+                    sub_directory = os.path.join(directory_path, subdir)
+                    sub_directory = sub_directory.replace(os.sep, "/")
+                    if os.path.isdir(sub_directory):
+                        self.import_library(sub_directory)
             else:
-                self.importLibrary(directoryPath)
+                self.import_library(directory_path)
 
-    def checkPermissions(self):
+    def check_permissions(self):
         # Getting ShotGrid object
         sg = self.sg
 
         # Getting current user ID
         user = sgtk.util.get_current_user(sg)
-        userID = user.get('id')
+        user_id = user.get("id")
 
-        filters = [['id', 'is', userID]]
-        columns =  ['permission_rule_set']
+        filters = [["id", "is", user_id]]
+        columns = ["permission_rule_set"]
 
         # Find permission group
-        userPermissionGroup = sg.find_one('HumanUser', filters, columns)
-        userPermissionGroup = userPermissionGroup.get('permission_rule_set')
-        userPermissionGroup = userPermissionGroup.get('name')
+        user_permission_group = sg.find_one("HumanUser", filters, columns)
+        user_permission_group = user_permission_group.get("permission_rule_set")
+        user_permission_group = user_permission_group.get("name")
 
-        isAllowedImporting = False
+        is_allowed_importing = False
 
         # Allow importing when permission group is admin or specified permission group
-        if userPermissionGroup == 'Admin' or userPermissionGroup == self.permissionGroup:
-            self.outputToConsole("User is allowed to start importing.")
-            isAllowedImporting = True
+        if (
+            user_permission_group == "Admin"
+            or user_permission_group == self.permissionGroup
+        ):
+            self.output_to_console("User is allowed to start importing.")
+            is_allowed_importing = True
 
         else:
-            self.outputToConsole("User is not allowed to start importing.")
+            self.output_to_console("User is not allowed to start importing.")
 
-        return isAllowedImporting
+        return is_allowed_importing
 
+    def import_library(self, directory_path):
 
-    def importLibrary(self, directoryPath):
-
-        self.outputToConsole("Executing importing on: " + directoryPath)
+        self.output_to_console("Executing importing on: " + directory_path)
 
         # Getting ShotGrid object
         sg = self.sg
 
         # Setting values for Library entity
-        libraryProjectID = self.projectID
+        library_project_id = self.projectID
         status = self.libraryStatus
-        categoryName = os.path.basename(directoryPath)
-        libraryDescription = categoryName.replace("_", " ")
+        category_name = os.path.basename(directory_path)
+        library_description = category_name.replace("_", " ")
 
         # Searching if Sequence exists already
-        categoryFilters = [ ['project', 'is', {'type': 'Project', 'id': libraryProjectID}],
-                    ['code', 'is', categoryName] ]
-        category = sg.find_one('Sequence', categoryFilters)
+        category_filters = [
+            ["project", "is", {"type": "Project", "id": library_project_id}],
+            ["code", "is", category_name],
+        ]
+        category = sg.find_one("Sequence", category_filters)
 
         # If sequence doesn't exist, create one
         if not category:
-            categoryData = {
-                'project': {"type":"Project","id": libraryProjectID},
-                'code': categoryName,
-                'description': libraryDescription,
-                'sg_status_list': status
+            category_data = {
+                "project": {"type": "Project", "id": library_project_id},
+                "code": category_name,
+                "description": library_description,
+                "sg_status_list": status,
             }
-            category = sg.create('Sequence', categoryData)
-            categoryID = category.get('id')
+            category = sg.create("Sequence", category_data)
+            category_id = category.get("id")
 
             # Output result to console
-            self.outputToConsole("Created new category with id " + str(categoryID) + ".")
+            self.output_to_console(
+                "Created new category with id " + str(category_id) + "."
+            )
 
         else:
             # Define category id
-            categoryID = category.get('id')
+            category_id = category.get("id")
 
             # Output result to console
-            self.outputToConsole("Found existing category with id " + str(categoryID) + ", adding stock to this category.")
-
-
+            self.output_to_console(
+                "Found existing category with id "
+                + str(category_id)
+                + ", adding stock to this category."
+            )
 
         # Creating asset per filename and generate quicktime, afterwards upload to ShotGrid
-        for subdir, dir, files in os.walk(directoryPath):
-            dirList = os.listdir(subdir)
+        for subdir, dir, files in os.walk(directory_path):
+            dir_list = os.listdir(subdir)
 
-            if any(".exr" in dirNames for dirNames in dirList):
+            if any(".exr" in dirNames for dirNames in dir_list):
                 # exr logic
-                fileSequences = self.getFrameSequences(subdir)
-                for sequence in fileSequences:
+                file_sequences = self.get_frame_sequences(subdir)
+                for sequence in file_sequences:
                     # Defining variables
-                    filePath = sequence[0]
-                    filePath = filePath.replace(os.sep, '/')
+                    file_path = sequence[0]
+                    file_path = file_path.replace(os.sep, "/")
 
-                    fileName = os.path.dirname(filePath)
-                    fileName = os.path.basename(fileName) + ' (exr)'
+                    file_name = os.path.dirname(file_path)
+                    file_name = os.path.basename(file_name) + " (exr)"
 
-
-                    frameList = sequence[1]
-                    startFrame = min(frameList)
-                    lastFrame = max(frameList)
+                    frame_list = sequence[1]
+                    start_frame = min(frame_list)
+                    last_frame = max(frame_list)
 
                     # Starting submission
-                    assetID = self.generateAsset(libraryProjectID, categoryID, fileName, status)
+                    asset_id = self.generate_asset(
+                        library_project_id, category_id, file_name, status
+                    )
 
                     # Making sure only to create version if allowed
-                    createVersion = True
+                    create_version = True
                     if not self.ui.overwriteExisting.isChecked():
-                        if self.checkExistingVersions(libraryProjectID, assetID):
-                            createVersion = False
+                        if self.check_existing_versions(library_project_id, asset_id):
+                            create_version = False
 
-                            self.outputToConsole("Skipping " + fileName + ". Version exists already.")
+                            self.output_to_console(
+                                "Skipping " + file_name + ". Version exists already."
+                            )
 
-
-                    if createVersion:
-                        versionID = self.createVersion(libraryProjectID, assetID, fileName, filePath, 'sequence', startFrame, lastFrame)
+                    if create_version:
+                        version_id = self.create_version(
+                            library_project_id,
+                            asset_id,
+                            file_name,
+                            file_path,
+                            "sequence",
+                            start_frame,
+                            last_frame,
+                        )
 
                         # Transcoding to mov and upload to ShotGrid
-                        self.generateQuicktime(filePath, fileName, versionID, 'sequence', startFrame)
-
-
+                        self.generate_quicktime(
+                            file_path, file_name, version_id, "sequence", start_frame
+                        )
 
             else:
-                for fileName in files:
+                for file_name in files:
                     # Logic for mp4/mov's
-                    videoFiles = ('.mov', '.mp4')
-                    if fileName.endswith(videoFiles):
-                        filePath = os.path.join(subdir, fileName)
-                        filePath = filePath.replace(os.sep, '/')
-                        fileExtension = " (" + os.path.splitext(filePath)[1][1:] + ")"
-                        fileName = os.path.splitext(fileName)[0] + fileExtension
+                    video_files = (".mov", ".mp4")
+                    if file_name.endswith(video_files):
+                        file_path = os.path.join(subdir, file_name)
+                        file_path = file_path.replace(os.sep, "/")
+                        file_extension = " (" + os.path.splitext(file_path)[1][1:] + ")"
+                        file_name = os.path.splitext(file_name)[0] + file_extension
 
-                        assetID = self.generateAsset(libraryProjectID, categoryID, fileName, status)
-
+                        asset_id = self.generate_asset(
+                            library_project_id, category_id, file_name, status
+                        )
 
                         # Making sure only to create version if allowed
-                        createVersion = True
+                        create_version = True
                         if not self.ui.overwriteExisting.isChecked():
-                            if self.checkExistingVersions(libraryProjectID, assetID):
-                                createVersion = False
+                            if self.check_existing_versions(
+                                library_project_id, asset_id
+                            ):
+                                create_version = False
 
-                                self.outputToConsole("Skipping " + fileName + ". Version exists already.")
+                                self.output_to_console(
+                                    "Skipping "
+                                    + file_name
+                                    + ". Version exists already."
+                                )
 
-                        if createVersion:
-                            versionID = self.createVersion(libraryProjectID, assetID, fileName, filePath, 'file')
-                            self.generateQuicktime(filePath, fileName, versionID, 'file')
+                        if create_version:
+                            version_id = self.create_version(
+                                library_project_id,
+                                asset_id,
+                                file_name,
+                                file_path,
+                                "file",
+                            )
+                            self.generate_quicktime(
+                                file_path, file_name, version_id, "file"
+                            )
 
         # Message when everything is done
-        self.outputToConsole("Done importing.")
+        self.output_to_console("Done importing.")
 
-
-    def generateAsset(self, projectID, categoryID, fileName, status):
+    def generate_asset(self, project_id, category_id, file_name, status):
         # Getting ShotGrid object
         sg = self.sg
 
         # Searching if Asset exists already
-        assetFilters = [ ['project', 'is', {'type': 'Project', 'id': projectID}],
-                    ['sequences', 'is', {'type': 'Sequence', 'id': categoryID}],
-                    ['code', 'is', fileName] ]
-        asset = sg.find_one('Asset', assetFilters)
+        asset_filters = [
+            ["project", "is", {"type": "Project", "id": project_id}],
+            ["sequences", "is", {"type": "Sequence", "id": category_id}],
+            ["code", "is", file_name],
+        ]
+        asset = sg.find_one("Asset", asset_filters)
 
-        assetDescription = fileName.replace("_", " ")
+        asset_description = file_name.replace("_", " ")
 
         # If sequence doesn't exist, create one
         if not asset:
-            assetData = {
-                        'project': {"type":"Project","id": projectID},
-                        'sequences': [{"type":"Sequence","id": categoryID}],
-                        'code': fileName,
-                        'sg_asset_type': 'Library',
-                        'description': assetDescription,
-                        'sg_status_list': status
-                        }
-            asset = sg.create('Asset', assetData)
-            assetID = asset.get('id')
+            asset_data = {
+                "project": {"type": "Project", "id": project_id},
+                "sequences": [{"type": "Sequence", "id": category_id}],
+                "code": file_name,
+                "sg_asset_type": "Library",
+                "description": asset_description,
+                "sg_status_list": status,
+            }
+            asset = sg.create("Asset", asset_data)
+            asset_id = asset.get("id")
 
             # Output result to console
-            self.outputToConsole("Created library asset for " + fileName + ".")
+            self.output_to_console("Created library asset for " + file_name + ".")
 
         else:
             # Define category id
-            assetID = asset.get('id')
+            asset_id = asset.get("id")
 
             # Output result to console
-            self.outputToConsole("Found existing library asset for " + fileName + ". Adding version to this one.")
+            self.output_to_console(
+                "Found existing library asset for "
+                + file_name
+                + ". Adding version to this one."
+            )
 
-        return assetID
+        return asset_id
 
-    def createVersion(self, projectID, assetID, fileName, filePath, type, startFrame=None, lastFrame=None):
+    def create_version(
+        self,
+        project_id,
+        asset_id,
+        file_name,
+        file_path,
+        type,
+        start_frame=None,
+        last_frame=None,
+    ):
         # Getting ShotGrid object
         sg = self.sg
 
-        versionDescription = fileName.replace("_", " ")
+        version_description = file_name.replace("_", " ")
 
         # Adding all the necessary data
-        versionData = { 'project': {'type': 'Project','id': projectID},
-                 'code': fileName,
-                 'description': versionDescription,
-                 'sg_status_list': 'vwd',
-                 'entity': {'type': 'Asset', 'id': assetID}}
+        version_data = {
+            "project": {"type": "Project", "id": project_id},
+            "code": file_name,
+            "description": version_description,
+            "sg_status_list": "vwd",
+            "entity": {"type": "Asset", "id": asset_id},
+        }
 
         # Add to sequence field or movie field
-        if type == 'sequence':
-            versionPath = {'sg_path_to_frames': filePath}
+        if type == "sequence":
+            version_path = {"sg_path_to_frames": file_path}
 
         else:
-            versionPath = {'sg_path_to_movie': filePath}
+            version_path = {"sg_path_to_movie": file_path}
 
         # Add the data to dictionary
-        versionData.update(versionPath)
+        version_data.update(version_path)
 
-        if not startFrame == None and not lastFrame == None:
-            frameData = {'sg_first_frame': int(startFrame),
-                        'sg_last_frame': int(lastFrame)}
-            versionData.update(frameData)
+        if not start_frame == None and not last_frame == None:
+            frame_data = {
+                "sg_first_frame": int(start_frame),
+                "sg_last_frame": int(last_frame),
+            }
+            version_data.update(frame_data)
 
         # Create version entity linked to asset
-        createdVersion = sg.create('Version', versionData)
-        versionID = createdVersion.get('id')
+        created_version = sg.create("Version", version_data)
+        version_id = created_version.get("id")
 
-        self.outputToConsole("Created version on ShotGrid for " + fileName + ".")
+        self.output_to_console("Created version on ShotGrid for " + file_name + ".")
 
-        return versionID
+        return version_id
 
-    def generateQuicktime(self, filePath, fileName, versionID, type, startFrame=None):
+    def generate_quicktime(
+        self, file_path, file_name, version_id, type, start_frame=None
+    ):
         # Set initial value
-        outputComplete = False
+        output_complete = False
 
-        if not type == '':
+        if not type == "":
             # Getting ShotGrid object
             sg = self.sg
 
             try:
                 # Create temp file location
-                tempLocation = tempfile.mkdtemp()
+                temp_location = tempfile.mkdtemp()
 
                 # Transcode movie
-                tempVideoLocation = os.path.join(tempLocation, fileName + '.mov')
-                tempVideoLocation = tempVideoLocation.replace(os.sep, '/')
+                temp_video_location = os.path.join(temp_location, file_name + ".mov")
+                temp_video_location = temp_video_location.replace(os.sep, "/")
 
-                if type == 'file':
-                    subprocess.call(['ffmpeg', '-y', '-i', filePath, '-vcodec', 'libx264', '-pix_fmt', 'yuv420p', '-acodec', 'aac', tempVideoLocation])
+                if type == "file":
+                    subprocess.call(
+                        [
+                            "ffmpeg",
+                            "-y",
+                            "-i",
+                            file_path,
+                            "-vcodec",
+                            "libx264",
+                            "-pix_fmt",
+                            "yuv420p",
+                            "-acodec",
+                            "aac",
+                            temp_video_location,
+                        ]
+                    )
 
-                if type == 'sequence':
-                    startFrame = str(startFrame)
-                    subprocess.call(['ffmpeg', '-y', '-gamma', '2.2', '-start_number', startFrame, '-i', filePath, '-vcodec', 'libx264', '-pix_fmt', 'yuv420p', '-r', '25', tempVideoLocation])
+                if type == "sequence":
+                    start_frame = str(start_frame)
+                    subprocess.call(
+                        [
+                            "ffmpeg",
+                            "-y",
+                            "-gamma",
+                            "2.2",
+                            "-start_number",
+                            start_frame,
+                            "-i",
+                            file_path,
+                            "-vcodec",
+                            "libx264",
+                            "-pix_fmt",
+                            "yuv420p",
+                            "-r",
+                            "25",
+                            temp_video_location,
+                        ]
+                    )
 
                 # Upload to ShotGrid
-                uploadedMovie = sg.upload('Version', versionID, tempVideoLocation, 'sg_uploaded_movie')
+                sg.upload(
+                    "Version", version_id, temp_video_location, "sg_uploaded_movie"
+                )
 
                 # Remove temp file
-                shutil.rmtree(tempLocation)
+                shutil.rmtree(temp_location)
 
-                self.outputToConsole("Uploaded transcoded movie for " + fileName + ".")
+                self.output_to_console(
+                    "Uploaded transcoded movie for " + file_name + "."
+                )
 
-                outputComplete = True
+                output_complete = True
 
             except:
-                self.outputToConsole("Quicktime creation failed for " + fileName + ".")
-
+                self.output_to_console(
+                    "Quicktime creation failed for " + file_name + "."
+                )
 
         else:
             # If no type specified, return error
-            raise ValueError('No type specified.')
-            self.outputToConsole('No type specified.')
+            raise ValueError("No type specified.")
+            self.output_to_console("No type specified.")
 
-        return outputComplete
+        return output_complete
 
-    def checkExistingVersions(self, projectID, assetID):
+    def check_existing_versions(self, project_id, asset_id):
         sg = self.sg
 
         # Set initial value
         versionExists = False
 
         # Search for
-        versionFilters = [ ['project', 'is', {'type': 'Project', 'id': projectID}],
-                            ['entity', 'is', {'type': 'Asset', 'id': assetID}]]
-        version = sg.find_one('Version', versionFilters)
+        versionFilters = [
+            ["project", "is", {"type": "Project", "id": project_id}],
+            ["entity", "is", {"type": "Asset", "id": asset_id}],
+        ]
+        version = sg.find_one("Version", versionFilters)
 
         # Set value if versions were found
         if version:
@@ -408,7 +497,7 @@ class AppDialog(QtGui.QWidget):
 
         return versionExists
 
-    def getFrameSequences(self, folder, extensions=None, frame_spec=None):
+    def get_frame_sequences(self, folder, extensions=None, frame_spec=None):
         """
         Copied from the publisher plugin, and customized to return file sequences with frame lists instead of filenames
 
@@ -479,7 +568,6 @@ class AppDialog(QtGui.QWidget):
 
             # filename without a frame number.
             file_no_frame = "%s.%s" % (prefix, extension)
-
 
             if file_no_frame in processed_names:
                 # already processed this sequence. add the framenumber to the list, later we can use this to determine the framerange

@@ -20,7 +20,7 @@ configuration:
     library_status:
         type: str
         description: "Setting for the default status that is assigned to the created sequences/assets/versions"
-        default_value: lib
+        default_value: wtg
 
     library_location:
         type: str
