@@ -27,6 +27,7 @@ import subprocess
 import tempfile
 import shutil
 import re
+import time
 from datetime import datetime
 
 # by importing QT from sgtk rather than directly, we ensure that
@@ -81,7 +82,7 @@ class AppDialog(QtGui.QWidget):
 
         # Connecting logic
         self.ui.browseDirectory.clicked.connect(self.file_browser)
-        self.ui.executeButton.clicked.connect(self.execute_importing)
+        self.ui.executeButton.clicked.connect(self.execute)
 
     def file_browser(self):
         # Creating file browser
@@ -105,12 +106,16 @@ class AppDialog(QtGui.QWidget):
         previous_text = self.ui.console.toPlainText()
         current_time = datetime.now()
         current_time = current_time.strftime("%H:%M:%S")
-        current_time = "[" + str(current_time) + "] "
+        current_time = "[%s] " % str(current_time)
 
         if not previous_text == "":
             self.ui.console.insertPlainText("\n" + current_time + message)
         else:
             self.ui.console.insertPlainText(current_time + message)
+
+    def execute(self):
+        thread = threading.Thread(target=self.execute_importing())
+        thread.start()
 
     def execute_importing(self):
         # Getting directory path
@@ -210,11 +215,14 @@ class AppDialog(QtGui.QWidget):
                 + ", adding stock to this category."
             )
 
+        thread = threading.Thread(target=self.import_sub_directory, args=(directory_path, library_project_id, category_id, status, ))
+        thread.start()
+
+    def import_sub_directory(self, directory_path, library_project_id, category_id, status):
         # Creating asset per filename and generate quicktime, afterwards upload to ShotGrid
         for subdir, dir, files in os.walk(directory_path):
             dir_list = os.listdir(subdir)
-
-            if any(".exr" in dirNames for dirNames in dir_list):
+            if any(".exr" in dir_names for dir_names in dir_list):
                 # exr logic
                 file_sequences = self.get_frame_sequences(subdir)
                 for sequence in file_sequences:
@@ -300,8 +308,6 @@ class AppDialog(QtGui.QWidget):
                                 file_path, file_name, version_id, "file"
                             )
 
-        # Message when everything is done
-        self.output_to_console("Done importing.")
 
     def generate_asset(self, project_id, category_id, file_name, status):
         # Getting ShotGrid object
